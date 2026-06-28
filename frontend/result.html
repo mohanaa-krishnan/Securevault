@@ -1,13 +1,81 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <link rel="stylesheet" href="result.css">
         <title>
             Result
         </title>
     </head>
     <body>
-        <h2>
-            Result page
-        </h2>
+    
+        <div class="container2">
+            <input type="text" id="passcode" name="passcode" placeholder="Enter">
+            <button type="button" onclick="audit()">
+                check
+            </button>
+            <div class="metercontainer">
+                <div id="meterbar">
+
+                </div>
+            </div>
+            <p id="result"></p>
+
+        </div>
+        <script>
+            function audit()
+            {
+                let score=0;
+                let pass=document.getElementById("passcode").value;
+                let res=document.getElementById("result");
+                let meterr=document.getElementById("meterbar");
+            
+                if (pass.length>=8)
+                {
+                    score++;
+                    
+                }
+                if(/[A-Z]/.test(pass))
+                {
+                    score++;
+                }
+                if(/[a-z]/.test(pass))
+                {
+                    score++;
+                }
+                if(/[0-9]/.test(pass))
+                {
+                    score++;
+                }
+                if(/[!@#$%^&*]/.test(pass))
+                {
+                    score++;
+                }
+
+            if(score<=2)
+            {
+               res.innerText="WEAK PASSWORD";
+               meterr.style.width="40%";
+                    meterr.style.backgroundColor="red";
+            }
+            else if (score>2 && score<4) {
+                res.innerText="MID PASSWORD";
+                meterr.style.width="75%";
+                    meterr.style.backgroundColor="orange";                
+            } else if(score>=4 && score <=5){
+                meterr.style.width="100%";
+                    meterr.style.backgroundColor="green";
+                res.innerText="STRONG PASSWORD";
+                
+            }
+           
+                console.log("Length:", pass.length >= 8);
+console.log("Upper:", /[A-Z]/.test(pass));
+console.log("Lower:", /[a-z]/.test(pass));
+console.log("Number:", /[0-9]/.test(pass));
+console.log("Special:", /[!@#$%^&*()\-_=+?]/.test(pass));
+console.log("Score:", score);
+            
+}
+        </script>
     </body>
 </html>
