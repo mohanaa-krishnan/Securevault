@@ -1,4 +1,5 @@
-public class Vaultentry {
+import java.io.Serializable;
+public class Vaultentry implements  Serializable{
     String website;
     String username;
     String password;

@@ -1,7 +1,8 @@
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Scanner;
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args)throws Exception,ClassNotFoundException {
 
         Scanner in=new Scanner(System.in);
         ArrayList<User>users=new ArrayList<>();
@@ -39,6 +40,18 @@ if(found)
     System.out.println("Login successful");
 
     ArrayList<Vaultentry>vaults=new ArrayList<>();
+    File file=new File("storage.dat");
+    if (file.exists() && file.length()!=0) {
+       try(ObjectInputStream ois=new ObjectInputStream(new FileInputStream(file)))
+       {
+           vaults=(ArrayList<Vaultentry>) ois.readObject();
+       }
+    }
+    else
+    {
+        vaults=new ArrayList<>();
+    }
+
     boolean running=true;
     while(running) {
     System.out.println("0.nothing");
@@ -65,11 +78,15 @@ if(found)
             if (vaults.isEmpty()) {
                 System.out.println("Vault is empty");
             } else {
-                for (Vaultentry entry : vaults) {
-                    System.out.println("website:" + entry.website);
-                    System.out.println("email/username:" + entry.username);
-                    System.out.println("password:" + entry.password);
+                for(Vaultentry vv:vaults)
+                {
+                    System.out.println(vv.website);
+                    System.out.println(vv.username);
+                    System.out.println(vv.password);
                 }
+
+
+
             }
         }
        else  if(check==3)
@@ -160,6 +177,11 @@ if(found)
             running=false;
             System.out.println("Out of process");
         }
+    }
+    try(FileOutputStream fos=new FileOutputStream("storage.dat"); ObjectOutputStream oos=new ObjectOutputStream(fos))
+    {
+        oos.writeObject(vaults);
+        
     }
 }
 else
