@@ -1,6 +1,9 @@
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 
 public class Main {
     public static void main(String[] args) throws Exception, ClassNotFoundException {
@@ -44,12 +47,10 @@ public class Main {
             System.out.println("Login successful");
             try {
                 loadVault();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 System.out.println("Cannot load file");
             }
-        }else {
+        } else {
             System.out.println("Login failed");
         }
 
@@ -73,6 +74,8 @@ public class Main {
             System.out.println("2.view credentials");
             System.out.println("3.Delete credentials");
             System.out.println("4.edit credentials");
+            System.out.println("5.search credentials");
+
 
             int check = in.nextInt();
             in.nextLine();
@@ -96,14 +99,17 @@ public class Main {
         } else if (check == 4) {
             editcredentials(vaults);
             return true;
-        } else if (check == 0) {
+        }
+        else if (check==5)
+        {
+            searchcredentials(vaults);
+            return true;
+        }else if (check == 0) {
             try {
                 savevault(vaults);
                 return false;
-            }
-            catch (Exception e)
-            {
-             System.out.println("Cannot save file");
+            } catch (Exception e) {
+                System.out.println("Cannot save file");
             }
         }
         return false;
@@ -117,21 +123,34 @@ public class Main {
         String email = in.nextLine();
         System.out.println("enter password");
         String password = in.nextLine();
+        passwordCheck(password);
         Vaultentry v = new Vaultentry(website, email, password);
         vaults.add(v);
     }
 
     public static void viewcredentials(ArrayList<Vaultentry> vaults) {
+        Scanner in = new Scanner(System.in);
         if (vaults.isEmpty()) {
             System.out.println("Vault is empty");
         } else {
             for (Vaultentry vv : vaults) {
-                System.out.println(vv.website);
-                System.out.println(vv.username);
-                System.out.println(vv.password);
+                System.out.println("Website:"+vv.website);
+                System.out.println("Email:"+vv.username);
+                System.out.println("show password:(yes/no)?");
+                String answer = in.nextLine();
+                if (answer.equals("yes")) {
+                    System.out.println("Password:"+vv.password);
+                } else if (answer.equals("no")) {
+                    StringBuilder masked = new StringBuilder();
+                    for (int i = 0; i < vv.password.length(); i++) {
+                        masked.append('*');
+                    }
+                    System.out.println("Password:"+masked);
+                    //  System.out.println(vv.password);
+                }
+
+
             }
-
-
         }
     }
 
@@ -183,6 +202,7 @@ public class Main {
                     if (check2 == 1) {
                         System.out.println("Enter new password:");
                         String newpassword = in.nextLine();
+                        passwordCheck(newpassword);
                         entry.password = newpassword;
                     } else if (check2 == 2) {
                         System.out.println("Enter new mail:");
@@ -214,6 +234,72 @@ public class Main {
 
         }
     }
-}
+
+    public static void passwordCheck(String passcode) {
+        Scanner in = new Scanner(System.in);
+        String pass = passcode;
+        int score = 0;
+        if (pass.length() >= 8) {
+            score++;
+        } if (pass.matches(".*[a-z].*")) {
+            score++;
+        }  if (pass.matches(".*[0-9].*")) {
+
+            score++;
+        }
+        if (pass.matches(".*[A-Z].*")) {
+            score++;
+        }
+        Pattern p = Pattern.compile("[^A-Za-z0-9]");
+        Matcher m = p.matcher(pass);
+        boolean b = m.find();
+                        if (b) {
+                    score++;
+
+
+                }
+                        if(score>=0 && score<=2)
+                        {
+                            System.out.println("weak password");
+                        }
+       else  if(score>2 && score<=4)
+        {
+            System.out.println("mid password");
+        }
+        if(score>4 && score<=5)
+        {
+            System.out.println("strong password");
+        }
+            }
+        public static void searchcredentials(ArrayList<Vaultentry>vaults)
+        {
+            Scanner in=new Scanner(System.in);
+            System.out.println("Enter website name:");
+            String web=in.nextLine();
+            boolean found=false;
+            for(Vaultentry v:vaults)
+            {
+                if(v.website.equals(web))
+                {
+                    System.out.println("Email:"+v.username);
+                    System.out.println("Password:"+v.password);
+                    found=true;
+                    break;
+
+                }
+            }
+            if(found)
+            {
+                System.out.println("Credentials found");
+            }
+            else
+            {
+                System.out.println("Credentials not exsits");
+            }
+        }
+        }
+
+
+
 
 
