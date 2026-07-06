@@ -69,3 +69,16 @@ margin-left: 20px;
     transition: 0.5s;
 
 }
+.rules {
+    font-size: 14px;
+    padding-left: 25px;
+    color: #8b1e1e;
+}
+
+.rules li {
+    margin-top: 5px;
+}
+
+.rules li.valid {
+    color: green;
+}

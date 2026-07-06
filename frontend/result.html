@@ -9,10 +9,14 @@
     <body>
     
         <div class="container2">
-            <input type="text" id="passcode" name="passcode" placeholder="Enter">
-            <button type="button" onclick="audit()">
-                check
-            </button>
+            <input type="text" id="passcode" name="passcode" placeholder="Enter" oninput="audit()">
+           <ul class="rules">
+            <li id="Length">Atleast 8 characters</li>
+            <li id="upper">One uppercase letter</li>
+            <li id="lower">One lowercase letter</li>
+            <li id="number">One digit</li>
+            <li id="special">One special character</li>
+           </ul>
             <div class="metercontainer">
                 <div id="meterbar">
 
@@ -28,52 +32,75 @@
                 let pass=document.getElementById("passcode").value;
                 let res=document.getElementById("result");
                 let meterr=document.getElementById("meterbar");
-            
-                if (pass.length>=8)
-                {
-                    score++;
-                    
-                }
-                if(/[A-Z]/.test(pass))
-                {
-                    score++;
-                }
-                if(/[a-z]/.test(pass))
-                {
-                    score++;
-                }
-                if(/[0-9]/.test(pass))
-                {
-                    score++;
-                }
-                if(/[!@#$%^&*]/.test(pass))
-                {
-                    score++;
-                }
 
-            if(score<=2)
+                if (pass.length === 0) {
+    meterr.style.width = "0%";
+    res.innerText = "";
+
+    updateRule("Length", false);
+    updateRule("upper", false);
+    updateRule("lower", false);
+    updateRule("number", false);
+    updateRule("special", false);
+
+    return;
+}
+            
+               let length=pass.length>=8;
+               let upper=/[A-Z]/.test(pass);
+               let lower=/[a-z]/.test(pass);
+               let number=/[0-9]/.test(pass);
+               let special=/[!@#$%^&*()\-_+=?]/.test(pass);
+
+               updateRule("Length",length);
+               updateRule("upper",upper);
+               updateRule("lower",lower);
+               updateRule("number",number);
+               updateRule("special",special);
+
+               if(length) score++;
+               if(upper) score++;
+               if(lower) score++;
+               if(number) score++;
+               if(special) score++;
+                
+               
+               if (score == 0)
+                {
+                    res.innerText = "";
+                    meterr.style.width = "0%";
+                 }
+            
+            else if (score<=2)
             {
                res.innerText="WEAK PASSWORD";
                meterr.style.width="40%";
                     meterr.style.backgroundColor="red";
             }
-            else if (score>2 && score<4) {
+            else if (score<=4) {
                 res.innerText="MID PASSWORD";
                 meterr.style.width="75%";
                     meterr.style.backgroundColor="orange";                
-            } else if(score>=4 && score <=5){
+            } else if(score==5){
                 meterr.style.width="100%";
                     meterr.style.backgroundColor="green";
                 res.innerText="STRONG PASSWORD";
                 
             }
            
-                console.log("Length:", pass.length >= 8);
-console.log("Upper:", /[A-Z]/.test(pass));
-console.log("Lower:", /[a-z]/.test(pass));
-console.log("Number:", /[0-9]/.test(pass));
-console.log("Special:", /[!@#$%^&*()\-_=+?]/.test(pass));
-console.log("Score:", score);
+                function updateRule(id,passed)
+                {
+                    let rule=document.getElementById(id);
+
+                    if(passed)
+                {
+                    rule.classList.add("Valid");
+                }
+                else
+                {
+                    rule.classList.remove("Valid");
+                }
+                }
             
 }
         </script>
