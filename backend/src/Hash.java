@@ -4,22 +4,24 @@ public class Hash {
 
     public static void main(String[] args)throws Exception
     {
+        Hash temp=new Hash();
         String data="hello";
         String algo="SHA256";
-        byte[]salt=createsalt();
+        byte[]salt=temp.createsalt();
         System.out.println("SHA256:"+genreate(data,algo,salt));
 
     }
     private static String genreate(String data,String algo,byte[] salt)throws NoSuchAlgorithmException
     {
+        Hash temp=new Hash();
 MessageDigest digest=MessageDigest.getInstance(algo);
 digest.reset();
 digest.update(salt);
 byte[]hash=digest.digest(data.getBytes());
-return bytesToString(hash);
+return temp.bytesToString(hash);
     }
     private final static char[]hexarray="0123456789ABCDEF".toCharArray();
-    public static String bytesToString(byte[]hash)
+    public  String bytesToString(byte[]hash)
     {
         char[]hexchar=new char[hash.length*2];
         for(int i=0;i<hash.length;i++)
@@ -31,7 +33,7 @@ return bytesToString(hash);
         }
         return new String(hexchar);
     }
-    public static byte[] createsalt()
+    public  byte[] createsalt()
     {
         byte[]bytes=new byte[20];
         SecureRandom random=new SecureRandom();

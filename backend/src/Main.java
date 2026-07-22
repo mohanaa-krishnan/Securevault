@@ -16,6 +16,10 @@ public class Main {
             System.out.println("Enter password" + i + ":");
             String password = in.nextLine();
             User u = new User(name, password);
+            CryptoEngine temp=new CryptoEngine();
+            Hash temp2=new Hash();
+            byte[] salt=temp2.createsalt();
+            byte[] derivedkey=temp.deriveKey(password,salt);
 
             users.add(u);
         }
