@@ -1,5 +1,6 @@
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,17 +17,16 @@ public class Main {
             System.out.println("Enter password" + i + ":");
             String password = in.nextLine();
             User u = new User(name, password);
-            CryptoEngine temp=new CryptoEngine();
-            Hash temp2=new Hash();
-            byte[] salt=temp2.createsalt();
-            byte[] derivedkey=temp.deriveKey(password,salt);
+
+
+
 
             users.add(u);
         }
 
         for (int i = 0; i < 1; i++) {
             System.out.println(users.get(i).username);
-            System.out.println(users.get(i).password);
+            System.out.println(users.get(i).derivedkey);
         }
         login(users);
 
@@ -34,23 +34,31 @@ public class Main {
     }
 
 
-    public static void login(ArrayList<User> userss) {
+    public static void login(ArrayList<User> userss) throws Exception{
+        CryptoEngine engine=new CryptoEngine();
+
         Scanner in = new Scanner(System.in);
         System.out.println("enter login username");
         String loginuser = in.nextLine();
         System.out.println("enter login password");
         String loginpassword = in.nextLine();
         boolean found = false;
+        byte[] logkey = new byte[0];
         for (User user : userss) {
-            if (user.username.equals(loginuser) && user.password.equals(loginpassword)) {
+            CryptoEngine enginee=new CryptoEngine();
+            byte []attemptedkey=enginee.deriveKey(loginpassword,user.salt);
+            if (user.username.equals(loginuser) && Arrays.equals(attemptedkey,user.derivedkey)) {
                 found = true;
+                logkey=attemptedkey;
                 break;
             }
         }
         if (found) {
             System.out.println("Login successful");
             try {
-                loadVault();
+                loadVault(logkey);
+
+
             } catch (Exception e) {
                 System.out.println("Cannot load file");
             }
@@ -60,7 +68,7 @@ public class Main {
 
     }
 
-    public static void loadVault() throws Exception, ClassNotFoundException {
+    public static void loadVault(byte [] masterkey) throws Exception, ClassNotFoundException {
         Scanner in = new Scanner(System.in);
         ArrayList<Vaultentry> vaults = new ArrayList<>();
         File file = new File("storage.dat");
@@ -83,25 +91,25 @@ public class Main {
 
             int check = in.nextInt();
             in.nextLine();
-            running = handleMenuOption(check, vaults);
+            running = handleMenuOption(check, vaults,masterkey);
 
 
         }
 
     }
 
-    public static boolean handleMenuOption(int check, ArrayList<Vaultentry> vaults) {
+    public static boolean handleMenuOption(int check, ArrayList<Vaultentry> vaults,byte[]masterkey)throws Exception {
         if (check == 1) {
-            addcredentials(vaults);
+            addcredentials(vaults,masterkey);
             return true;
         } else if (check == 2) {
-            viewcredentials(vaults);
+            viewcredentials(vaults,masterkey);
             return true;
         } else if (check == 3) {
             deletecredentials(vaults);
             return true;
         } else if (check == 4) {
-            editcredentials(vaults);
+            editcredentials(vaults,masterkey);
             return true;
         }
         else if (check==5)
@@ -119,7 +127,7 @@ public class Main {
         return false;
     }
 
-    public static void addcredentials(ArrayList<Vaultentry> vaults) {
+    public static void addcredentials(ArrayList<Vaultentry> vaults,byte[] masterkey)throws Exception {
         Scanner in = new Scanner(System.in);
         System.out.println("enter website or app name:");
         String website = in.nextLine();
@@ -128,30 +136,22 @@ public class Main {
         System.out.println("enter password");
         String password = in.nextLine();
         passwordCheck(password);
-        Vaultentry v = new Vaultentry(website, email, password);
+        CryptoEngine engine=new CryptoEngine();
+        byte[] encrypted=engine.encrypt(password,masterkey);
+        Vaultentry v = new Vaultentry(website, email, encrypted);
         vaults.add(v);
     }
 
-    public static void viewcredentials(ArrayList<Vaultentry> vaults) {
+    public static void viewcredentials(ArrayList<Vaultentry> vaults,byte[] masterkey)throws Exception {
         Scanner in = new Scanner(System.in);
         if (vaults.isEmpty()) {
             System.out.println("Vault is empty");
         } else {
+            CryptoEngine engine=new CryptoEngine();
             for (Vaultentry vv : vaults) {
                 System.out.println("Website:"+vv.website);
                 System.out.println("Email:"+vv.username);
-                System.out.println("show password:(yes/no)?");
-                String answer = in.nextLine();
-                if (answer.equals("yes")) {
-                    System.out.println("Password:"+vv.password);
-                } else if (answer.equals("no")) {
-                    StringBuilder masked = new StringBuilder();
-                    for (int i = 0; i < vv.password.length(); i++) {
-                        masked.append('*');
-                    }
-                    System.out.println("Password:"+masked);
-                    //  System.out.println(vv.password);
-                }
+               byte[] decryted=engine.decrypt(vv.password,masterkey);
 
 
             }
@@ -184,7 +184,8 @@ public class Main {
         }
     }
 
-    public static void editcredentials(ArrayList<Vaultentry> vaults) {
+    public static void editcredentials(ArrayList<Vaultentry> vaults,byte[]masterkey)throws Exception {
+        CryptoEngine engine=new CryptoEngine();
         Scanner in = new Scanner(System.in);
         if (vaults.isEmpty()) {
             System.out.println("Vault is empty");
@@ -207,7 +208,8 @@ public class Main {
                         System.out.println("Enter new password:");
                         String newpassword = in.nextLine();
                         passwordCheck(newpassword);
-                        entry.password = newpassword;
+                        byte[] newencrypt=engine.encrypt(newpassword,masterkey);
+                        entry.password = newencrypt;
                     } else if (check2 == 2) {
                         System.out.println("Enter new mail:");
                         String new_email = in.nextLine();
