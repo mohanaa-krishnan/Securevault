@@ -1,4 +1,6 @@
-public class User {
+import java.io.Serializable;
+public class User implements Serializable{
+    public static final long serialVersionuid=1;
     String username;
     byte[] salt;
     byte[] derivedkey;

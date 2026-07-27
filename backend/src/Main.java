@@ -1,4 +1,5 @@
 import java.io.*;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Scanner;
@@ -7,28 +8,45 @@ import java.util.regex.Pattern;
 
 
 public class Main {
-    public static void main(String[] args) throws Exception, ClassNotFoundException {
+    public static void main(String[] args) throws Exception {
 
-        Scanner in = new Scanner(System.in);
+        File file=new File("users.dat");
+        String name;
+        String password;
         ArrayList<User> users = new ArrayList<>();
-        for (int i = 0; i < 1; i++) {
-            System.out.println("Enter username" + i + ":");
-            String name = in.nextLine();
-            System.out.println("Enter password" + i + ":");
-            String password = in.nextLine();
-            User u = new User(name, password);
+        if(file.exists()&&file.length()!=0) {
+            FileInputStream fis = new FileInputStream(file);
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            users=(ArrayList<User>) ois.readObject();
+        }
+        else {
+            users=new ArrayList<>();
+        }
+        Scanner in = new Scanner(System.in);
+        if(users.isEmpty())
+        {
+            System.out.println("No account founded.Create new account");
+            registeration(users);
 
-
-
-
-            users.add(u);
         }
 
-        for (int i = 0; i < 1; i++) {
-            System.out.println(users.get(i).username);
-            System.out.println(users.get(i).derivedkey);
-        }
-        login(users);
+            System.out.println("1.New account");
+            System.out.println("2.Login");
+            int choice=in.nextInt();
+            if(choice==1)
+            {
+                System.out.println("Move to Account Creation.....");
+                newAccount(users);
+                login(users);
+            }
+            else
+            {
+                System.out.println("Move to login.....");
+                login(users);
+            }
+
+
+
 
 
     }
@@ -56,11 +74,11 @@ public class Main {
         if (found) {
             System.out.println("Login successful");
             try {
-                loadVault(logkey);
+                loadVault(logkey,userss);
 
 
             } catch (Exception e) {
-                System.out.println("Cannot load file");
+                e.printStackTrace();
             }
         } else {
             System.out.println("Login failed");
@@ -68,12 +86,12 @@ public class Main {
 
     }
 
-    public static void loadVault(byte [] masterkey) throws Exception, ClassNotFoundException {
+    public static void loadVault(byte [] masterkey,ArrayList<User>users) throws Exception {
         Scanner in = new Scanner(System.in);
         ArrayList<Vaultentry> vaults = new ArrayList<>();
         File file = new File("storage.dat");
         if (file.exists() && file.length() != 0) {
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+            try (ObjectInputStream ois = new ObjectInputStream(Files.newInputStream(file.toPath()))) {
                 vaults = (ArrayList<Vaultentry>) ois.readObject();
             }
         } else {
@@ -91,14 +109,14 @@ public class Main {
 
             int check = in.nextInt();
             in.nextLine();
-            running = handleMenuOption(check, vaults,masterkey);
+            running = handleMenuOption(check, vaults,users,masterkey);
 
 
         }
 
     }
 
-    public static boolean handleMenuOption(int check, ArrayList<Vaultentry> vaults,byte[]masterkey)throws Exception {
+    public static boolean handleMenuOption(int check, ArrayList<Vaultentry> vaults,ArrayList<User>users,byte[]masterkey)throws Exception {
         if (check == 1) {
             addcredentials(vaults,masterkey);
             return true;
@@ -114,11 +132,12 @@ public class Main {
         }
         else if (check==5)
         {
-            searchcredentials(vaults);
+            searchcredentials(vaults,masterkey);
             return true;
         }else if (check == 0) {
             try {
                 savevault(vaults);
+                usersdatasave(users);
                 return false;
             } catch (Exception e) {
                 System.out.println("Cannot save file");
@@ -152,6 +171,7 @@ public class Main {
                 System.out.println("Website:"+vv.website);
                 System.out.println("Email:"+vv.username);
                byte[] decryted=engine.decrypt(vv.password,masterkey);
+               System.out.println("Password: "+new String(decryted));
 
 
             }
@@ -229,7 +249,7 @@ public class Main {
     }
 
     public static void savevault(ArrayList<Vaultentry> vaults)
-            throws Exception, ClassNotFoundException {
+            throws Exception {
 
 
         System.out.println("Out of process");
@@ -277,18 +297,20 @@ public class Main {
             System.out.println("strong password");
         }
             }
-        public static void searchcredentials(ArrayList<Vaultentry>vaults)
+        public static void searchcredentials(ArrayList<Vaultentry>vaults,byte[] masterkey)throws Exception
         {
             Scanner in=new Scanner(System.in);
             System.out.println("Enter website name:");
             String web=in.nextLine();
             boolean found=false;
+            CryptoEngine engine=new CryptoEngine();
             for(Vaultentry v:vaults)
             {
                 if(v.website.equals(web))
                 {
                     System.out.println("Email:"+v.username);
-                    System.out.println("Password:"+v.password);
+                    byte[]decrypted=engine.decrypt(v.password,masterkey);
+                    System.out.println("Password:"+new String(decrypted));
                     found=true;
                     break;
 
@@ -303,6 +325,73 @@ public class Main {
                 System.out.println("Credentials not exsits");
             }
         }
+        public static void registeration(ArrayList<User> users)throws Exception
+        {
+
+            Scanner in=new Scanner(System.in);
+            String name;
+            String password;
+
+            System.out.println("Enter username"  + ":");
+            name = in.nextLine();
+            System.out.println("Enter password" + ":");
+            password = in.nextLine();
+            User e=new User(name,password);
+            users.add(e);
+            try(ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream("users.dat")))
+            {
+                oos.writeObject(users);
+            }
+
+        }
+
+    public static void newAccount(ArrayList<User> users)throws Exception
+    {
+        Scanner in=new Scanner(System.in);
+        String name;
+        String password;
+
+        System.out.println("Enter username"  + ":");
+        name = in.nextLine();
+        boolean found=checkuser(name,users);
+        if(!found)
+        {
+            System.out.println("Enter newusername"  + ":");
+            name = in.nextLine();
+        }
+        else {
+
+            System.out.println("Enter password" + ":");
+            password = in.nextLine();
+            User e = new User(name, password);
+            users.add(e);
+            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("users.dat"))) {
+                oos.writeObject(users);
+            }
+        }
+    }
+
+    public  static boolean checkuser(String username,ArrayList<User>users)
+    {
+        for(User userss:users)
+        {
+            if(userss.username.equals(username))
+            {
+                System.out.println("Account already exsists");
+                return false;
+            }
+
+        }
+        return true;
+    }
+    public  static void usersdatasave(ArrayList<User>users) throws Exception
+    {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("users.dat"))) {
+            oos.writeObject(users);
+        }
+    }
+
+
         }
 
 
