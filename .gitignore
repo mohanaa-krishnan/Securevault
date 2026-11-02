@@ -1,6 +1,7 @@
 # Build targets
 target/
 out/
+bin/
 *.class
 *.log
 
