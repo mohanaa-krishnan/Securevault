@@ -6,21 +6,25 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * SecureVault Desktop Application — Java Swing GUI.
  *
  * Features:
- *   - Login & Registration with real-time password strength checklist.
+ *   - Login & Registration with real-time password strength checklist and visibility toggle.
  *   - Ephemeral session key handling (AES-256 vault key is wiped on logout or app exit).
- *   - Credential dashboard with live search, masked passwords, show/hide toggle, and clipboard copy.
- *   - Add, Edit, Delete credential dialogs with built-in strong password generator.
+ *   - Credential dashboard with live search, individual password visibility toggle, and clipboard copy.
+ *   - Add, Edit, Delete credential dialogs with built-in strong password generator and show/hide options.
  */
 public class SecureVaultApp extends JFrame {
 
@@ -43,6 +47,7 @@ public class SecureVaultApp extends JFrame {
     private JLabel userWelcomeLabel;
     private final List<VaultDao.VaultEntry> cachedEntries = new ArrayList<>();
     private boolean passwordsRevealed = false;
+    private final Set<Integer> revealedEntryIds = new HashSet<>();
 
     public SecureVaultApp() {
         super("SecureVault — Password Manager");
@@ -184,7 +189,7 @@ public class SecureVaultApp extends JFrame {
         panel.add(userField);
         panel.add(Box.createVerticalStrut(15));
         panel.add(createFieldLabel("Master Password:"));
-        panel.add(passField);
+        panel.add(createPasswordFieldWithToggle(passField));
         panel.add(Box.createVerticalStrut(15));
         panel.add(statusLabel);
         panel.add(Box.createVerticalStrut(10));
@@ -318,13 +323,13 @@ public class SecureVaultApp extends JFrame {
         panel.add(userField);
         panel.add(Box.createVerticalStrut(10));
         panel.add(createFieldLabel("Master Password:"));
-        panel.add(passField);
+        panel.add(createPasswordFieldWithToggle(passField));
         panel.add(Box.createVerticalStrut(4));
         panel.add(strengthBar);
         panel.add(strengthText);
         panel.add(Box.createVerticalStrut(10));
         panel.add(createFieldLabel("Confirm Master Password:"));
-        panel.add(confirmField);
+        panel.add(createPasswordFieldWithToggle(confirmField));
         panel.add(Box.createVerticalStrut(10));
         panel.add(statusLabel);
         panel.add(Box.createVerticalStrut(8));
@@ -433,18 +438,31 @@ public class SecureVaultApp extends JFrame {
         credentialsTable.getTableHeader().setBackground(new Color(241, 243, 245));
         credentialsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
+        // Double-click row to toggle individual password visibility
+        credentialsTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    toggleSelectedPasswordVisibility();
+                }
+            }
+        });
+
         // Hide ID column from view
         credentialsTable.getColumnModel().getColumn(0).setMinWidth(0);
         credentialsTable.getColumnModel().getColumn(0).setMaxWidth(0);
         credentialsTable.getColumnModel().getColumn(0).setWidth(0);
 
-        // Mask password column renderer
+        // Mask password column renderer (supports both global reveal and individual per-row reveal)
         credentialsTable.getColumnModel().getColumn(3).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
                                                            boolean isSelected, boolean hasFocus, int row, int col) {
+                int modelRow = table.convertRowIndexToModel(row);
+                int entryId = (int) tableModel.getValueAt(modelRow, 0);
                 String text = (value != null) ? value.toString() : "";
-                if (!passwordsRevealed && !text.isEmpty()) {
+                boolean isRevealed = passwordsRevealed || revealedEntryIds.contains(entryId);
+                if (!isRevealed && !text.isEmpty()) {
                     text = "••••••••••••";
                 }
                 return super.getTableCellRendererComponent(table, text, isSelected, hasFocus, row, col);
@@ -452,13 +470,24 @@ public class SecureVaultApp extends JFrame {
         });
 
         JScrollPane scrollPane = new JScrollPane(credentialsTable);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 25, 15, 25));
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 25, 10, 25));
         scrollPane.getViewport().setBackground(Color.WHITE);
 
         // Bottom Operations Bar
-        JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-        bottomBar.setBorder(new EmptyBorder(0, 25, 10, 25));
+        JPanel bottomBar = new JPanel(new BorderLayout());
+        bottomBar.setBorder(new EmptyBorder(5, 25, 15, 25));
         bottomBar.setOpaque(false);
+
+        JLabel tipLabel = new JLabel("💡 Tip: Double-click any row (or click 'Show / Hide Selected') to reveal a specific password.");
+        tipLabel.setFont(new Font("SansSerif", Font.ITALIC, 12));
+        tipLabel.setForeground(new Color(108, 117, 125));
+
+        JPanel buttonGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttonGroup.setOpaque(false);
+
+        JButton toggleSelectedBtn = new JButton("Show / Hide Selected");
+        toggleSelectedBtn.setToolTipText("Toggle visibility for the selected application password");
+        toggleSelectedBtn.addActionListener(e -> toggleSelectedPasswordVisibility());
 
         JButton copyBtn = new JButton("Copy Password");
         copyBtn.addActionListener(e -> copySelectedPassword());
@@ -470,9 +499,13 @@ public class SecureVaultApp extends JFrame {
         deleteBtn.setForeground(new Color(220, 53, 69));
         deleteBtn.addActionListener(e -> deleteSelectedEntry());
 
-        bottomBar.add(copyBtn);
-        bottomBar.add(editBtn);
-        bottomBar.add(deleteBtn);
+        buttonGroup.add(toggleSelectedBtn);
+        buttonGroup.add(copyBtn);
+        buttonGroup.add(editBtn);
+        buttonGroup.add(deleteBtn);
+
+        bottomBar.add(tipLabel, BorderLayout.WEST);
+        bottomBar.add(buttonGroup, BorderLayout.EAST);
 
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.setOpaque(false);
@@ -503,14 +536,34 @@ public class SecureVaultApp extends JFrame {
         JTextField userField = new JTextField();
         JPasswordField passField = new JPasswordField();
 
-        JButton genBtn = new JButton("Generate Password");
+        JButton genBtn = new JButton("Generate");
         genBtn.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        genBtn.setFocusPainted(false);
         genBtn.addActionListener(e -> passField.setText(generateStrongPassword(16)));
 
+        char defaultEcho = passField.getEchoChar();
+        JButton showBtn = new JButton("Show");
+        showBtn.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        showBtn.setFocusPainted(false);
+        showBtn.addActionListener(e -> {
+            if (passField.getEchoChar() == 0) {
+                passField.setEchoChar(defaultEcho);
+                showBtn.setText("Show");
+            } else {
+                passField.setEchoChar((char) 0);
+                showBtn.setText("Hide");
+            }
+        });
+
+        JPanel passActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        passActions.setOpaque(false);
+        passActions.add(showBtn);
+        passActions.add(genBtn);
+
         JPanel passRow = new JPanel(new BorderLayout(8, 0));
-        passRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        passRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         passRow.add(passField, BorderLayout.CENTER);
-        passRow.add(genBtn, BorderLayout.EAST);
+        passRow.add(passActions, BorderLayout.EAST);
 
         JButton saveBtn = new JButton("Encrypt & Save");
         saveBtn.setBackground(new Color(13, 110, 253));
@@ -606,7 +659,7 @@ public class SecureVaultApp extends JFrame {
         panel.add(userField);
         panel.add(Box.createVerticalStrut(15));
         panel.add(createFieldLabel("Password:"));
-        panel.add(passField);
+        panel.add(createPasswordFieldWithToggle(passField));
         panel.add(Box.createVerticalStrut(25));
         panel.add(saveBtn);
 
@@ -678,6 +731,7 @@ public class SecureVaultApp extends JFrame {
         cachedEntries.clear();
         tableModel.setRowCount(0);
         passwordsRevealed = false;
+        revealedEntryIds.clear();
 
         cardLayout.show(rootPanel, VIEW_AUTH);
     }
@@ -724,6 +778,48 @@ public class SecureVaultApp extends JFrame {
 
     private void filterTable() {
         refreshTableUI();
+    }
+
+    private void toggleSelectedPasswordVisibility() {
+        int selectedRow = credentialsTable.getSelectedRow();
+        if (selectedRow < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a credential first to show or hide its password.", "Notice", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        int modelRow = credentialsTable.convertRowIndexToModel(selectedRow);
+        int entryId = (int) tableModel.getValueAt(modelRow, 0);
+        if (revealedEntryIds.contains(entryId)) {
+            revealedEntryIds.remove(entryId);
+        } else {
+            revealedEntryIds.add(entryId);
+        }
+        tableModel.fireTableRowsUpdated(modelRow, modelRow);
+    }
+
+    private JPanel createPasswordFieldWithToggle(JPasswordField passField) {
+        JPanel row = new JPanel(new BorderLayout(6, 0));
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+
+        char defaultEcho = passField.getEchoChar();
+        JButton toggleBtn = new JButton("Show");
+        toggleBtn.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        toggleBtn.setFocusPainted(false);
+        toggleBtn.setPreferredSize(new Dimension(72, 32));
+
+        toggleBtn.addActionListener(e -> {
+            if (passField.getEchoChar() == 0) {
+                passField.setEchoChar(defaultEcho);
+                toggleBtn.setText("Show");
+            } else {
+                passField.setEchoChar((char) 0);
+                toggleBtn.setText("Hide");
+            }
+        });
+
+        row.add(passField, BorderLayout.CENTER);
+        row.add(toggleBtn, BorderLayout.EAST);
+        return row;
     }
 
     private JLabel createFieldLabel(String text) {
