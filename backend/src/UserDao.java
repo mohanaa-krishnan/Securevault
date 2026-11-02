@@ -57,6 +57,25 @@ public class UserDao {
             ps.setString(2, saltBase64);
             ps.setString(3, authHash);
             ps.executeUpdate();
+        } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+            throw new IllegalArgumentException("Username '" + username.trim() + "' is already taken.");
+        }
+    }
+
+    /**
+     * Deletes a user account and all associated vault entries (via cascading foreign key).
+     *
+     * @param username username to delete
+     * @return true if user was found and deleted, false otherwise
+     * @throws SQLException on database errors
+     */
+    public static boolean delete(String username) throws SQLException {
+        if (username == null || username.trim().isEmpty()) return false;
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "DELETE FROM users WHERE username = ?")) {
+            ps.setString(1, username.trim());
+            return ps.executeUpdate() > 0;
         }
     }
 

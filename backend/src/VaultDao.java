@@ -59,6 +59,8 @@ public class VaultDao {
             ps.setString(4, payload.ciphertextBase64());
             ps.setString(5, payload.ivBase64());
             ps.executeUpdate();
+        } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+            throw new IllegalArgumentException("An entry for '" + label.trim() + "' already exists in your vault.");
         }
     }
 

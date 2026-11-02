@@ -55,7 +55,8 @@ CREATE TABLE vault_entries (
     CONSTRAINT fk_vault_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT uq_user_label UNIQUE (user_id, label)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;

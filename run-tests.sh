@@ -32,7 +32,7 @@ mkdir -p bin
 if [ -n "$JAVAC_CMD" ]; then
     "$JAVAC_CMD" -cp "lib/*:backend/src" -d bin \
         backend/src/*.java \
-        backend/test/*.java 2>/dev/null || true
+        backend/test/*.java
 fi
 
 echo "Running SecureVault JUnit 5 Test Suite..."

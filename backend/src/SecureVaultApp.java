@@ -48,6 +48,8 @@ public class SecureVaultApp extends JFrame {
     private final List<VaultDao.VaultEntry> cachedEntries = new ArrayList<>();
     private boolean passwordsRevealed = false;
     private final Set<Integer> revealedEntryIds = new HashSet<>();
+    private String lastCopiedPassword = null;
+    private javax.swing.Timer clipboardClearTimer = null;
 
     public SecureVaultApp() {
         super("SecureVault — Password Manager");
@@ -586,6 +588,8 @@ public class SecureVaultApp extends JFrame {
                 Arrays.fill(pass, '\0');
                 dialog.dispose();
                 loadVaultEntries();
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(dialog, ex.getMessage(), "Duplicate Entry", JOptionPane.WARNING_MESSAGE);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(dialog, "Failed to save: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -704,7 +708,35 @@ public class SecureVaultApp extends JFrame {
         String password = (String) tableModel.getValueAt(selectedRow, 3);
         StringSelection selection = new StringSelection(password);
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
-        JOptionPane.showMessageDialog(this, "Password copied to clipboard!", "Copied", JOptionPane.INFORMATION_MESSAGE);
+        lastCopiedPassword = password;
+
+        if (clipboardClearTimer != null && clipboardClearTimer.isRunning()) {
+            clipboardClearTimer.stop();
+        }
+
+        // Auto-clear clipboard after 30 seconds if it still holds the copied password
+        clipboardClearTimer = new javax.swing.Timer(30000, e -> {
+            try {
+                java.awt.datatransfer.Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                if (clipboard.isDataFlavorAvailable(java.awt.datatransfer.DataFlavor.stringFlavor)) {
+                    String currentContent = (String) clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+                    if (lastCopiedPassword != null && lastCopiedPassword.equals(currentContent)) {
+                        clipboard.setContents(new StringSelection(""), null);
+                        lastCopiedPassword = null;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        });
+        clipboardClearTimer.setRepeats(false);
+        clipboardClearTimer.start();
+
+        JOptionPane.showMessageDialog(
+            this,
+            "Password copied to clipboard!\n(Clipboard will automatically clear in 30 seconds for security)",
+            "Copied",
+            JOptionPane.INFORMATION_MESSAGE
+        );
     }
 
     // ==================================================================
@@ -726,6 +758,21 @@ public class SecureVaultApp extends JFrame {
             CryptoEngine.wipeKey(currentVaultKey);
             currentVaultKey = null;
         }
+        if (clipboardClearTimer != null && clipboardClearTimer.isRunning()) {
+            clipboardClearTimer.stop();
+        }
+        try {
+            java.awt.datatransfer.Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            if (clipboard.isDataFlavorAvailable(java.awt.datatransfer.DataFlavor.stringFlavor)) {
+                String currentContent = (String) clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+                if (lastCopiedPassword != null && lastCopiedPassword.equals(currentContent)) {
+                    clipboard.setContents(new StringSelection(""), null);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        lastCopiedPassword = null;
+
         currentUserId = -1;
         currentUsername = null;
         cachedEntries.clear();

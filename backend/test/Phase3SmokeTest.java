@@ -75,6 +75,12 @@ public class Phase3SmokeTest {
         CryptoEngine.wipeKey(vaultKey);
         System.out.println("     OK: Vault key zeroed.");
 
+        // Step 11: Cleanup test user account
+        System.out.println("[11] Cleaning up test user account...");
+        boolean userDeleted = UserDao.delete(testUser);
+        System.out.println("     OK: Test user deleted=" + userDeleted);
+        assert userDeleted : "Test user should be deleted";
+
         System.out.println("\n=== All Phase 3 checks passed! ===");
     }
 }
