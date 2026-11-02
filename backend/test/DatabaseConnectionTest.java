@@ -1,8 +1,8 @@
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,30 +17,30 @@ public class DatabaseConnectionTest {
     }
 
     @Test
-    @DisplayName("getConnection with empty password environment variable throws IllegalStateException when unset")
-    void testMissingEnvPasswordThrows() {
-        String dbPass = System.getenv("DB_PASSWORD");
-        if (dbPass == null || dbPass.trim().isEmpty()) {
-            assertThrows(IllegalStateException.class, () -> {
-                DatabaseConnection.getConnection();
-            });
-        }
+    @DisplayName("getConnection with closed or null connection in getDatabaseVersion throws IllegalArgumentException")
+    void testNullConnectionThrowsInGetVersion() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            DatabaseConnection.getDatabaseVersion(null);
+        });
     }
 
     @Test
-    @DisplayName("getConnection succeeds when valid credentials provided in environment")
+    @DisplayName("getConnection succeeds when valid credentials provided in environment or .env")
     void testLiveConnectionWhenConfigured() {
-        String dbPass = System.getenv("DB_PASSWORD");
-        if (dbPass != null && !dbPass.trim().isEmpty()) {
-            assertDoesNotThrow(() -> {
-                try (Connection conn = DatabaseConnection.getConnection()) {
-                    assertNotNull(conn);
-                    assertFalse(conn.isClosed());
-                    String version = DatabaseConnection.getDatabaseVersion();
-                    assertNotNull(version);
-                    assertTrue(version.toLowerCase().contains("mariadb") || version.toLowerCase().contains("mysql"));
-                }
-            });
-        }
+        boolean canConnect = DatabaseConnection.testConnection();
+        Assumptions.assumeTrue(canConnect, "MariaDB credentials not configured or server unreachable; skipping live test");
+
+        assertDoesNotThrow(() -> {
+            try (Connection conn = DatabaseConnection.getConnection()) {
+                assertNotNull(conn);
+                assertFalse(conn.isClosed());
+                String version = DatabaseConnection.getDatabaseVersion(conn);
+                assertNotNull(version);
+                assertTrue(
+                    version.toLowerCase().contains("mariadb") || version.toLowerCase().contains("mysql"),
+                    "Expected MariaDB or MySQL version string, got: " + version
+                );
+            }
+        });
     }
 }

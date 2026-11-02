@@ -1,13 +1,21 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Centralized MariaDB JDBC connection provider for SecureVault.
  * Loads connection parameters from environment variables with safe local defaults.
- * Passwords are never hardcoded.
+ * Passwords are never hardcoded in source code.
  */
 public class DatabaseConnection {
 
@@ -17,23 +25,36 @@ public class DatabaseConnection {
     private static final String DEFAULT_USER = "pm_user";
     private static final int CONNECT_TIMEOUT_MS = 5000;
 
+    private static final boolean DRIVER_LOADED;
+    private static final Throwable DRIVER_LOAD_ERROR;
+    private static final Map<String, String> DOT_ENV_CACHE;
+
     static {
+        boolean loaded = false;
+        Throwable error = null;
         try {
-            // Explicitly load MariaDB JDBC Driver
             Class.forName("org.mariadb.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            // Driver will still attempt automatic registration via ServiceLoader on JDBC 4.0+
+            loaded = true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            error = e;
         }
+        DRIVER_LOADED = loaded;
+        DRIVER_LOAD_ERROR = error;
+
+        // Preload .env cache once to avoid disk I/O on every connection
+        DOT_ENV_CACHE = Collections.unmodifiableMap(loadDotEnvFiles());
     }
 
     /**
-     * Obtains a connection using environment variables (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD).
+     * Obtains a connection using environment variables or local .env fallback.
      *
      * @return an active java.sql.Connection
-     * @throws IllegalStateException if DB_PASSWORD is not set
+     * @throws IllegalStateException if DB_PASSWORD is not set or driver is missing
      * @throws SQLException if connection fails
      */
     public static Connection getConnection() throws SQLException {
+        ensureDriverAvailable();
+
         String host = getEnvOrDotEnv("DB_HOST", DEFAULT_HOST);
         int port = getPortOrDefault("DB_PORT", DEFAULT_PORT);
         String database = getEnvOrDotEnv("DB_NAME", DEFAULT_DATABASE);
@@ -62,6 +83,7 @@ public class DatabaseConnection {
      * @throws SQLException if connection fails
      */
     public static Connection getConnection(String host, int port, String database, String user, String password) throws SQLException {
+        ensureDriverAvailable();
         if (password == null) {
             throw new IllegalArgumentException("Database password cannot be null");
         }
@@ -85,14 +107,17 @@ public class DatabaseConnection {
     }
 
     /**
-     * Queries and returns the connected database server version (SELECT VERSION()).
+     * Queries and returns the connected database server version using an existing connection.
      *
+     * @param conn active database connection
      * @return version string reported by MariaDB
      * @throws SQLException if query fails
      */
-    public static String getDatabaseVersion() throws SQLException {
-        try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement();
+    public static String getDatabaseVersion(Connection conn) throws SQLException {
+        if (conn == null || conn.isClosed()) {
+            throw new IllegalArgumentException("Connection must be open and non-null");
+        }
+        try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT VERSION()")) {
             if (rs.next()) {
                 return rs.getString(1);
@@ -101,12 +126,34 @@ public class DatabaseConnection {
         }
     }
 
+    /**
+     * Queries and returns the connected database server version.
+     *
+     * @return version string reported by MariaDB
+     * @throws SQLException if query fails
+     */
+    public static String getDatabaseVersion() throws SQLException {
+        try (Connection conn = getConnection()) {
+            return getDatabaseVersion(conn);
+        }
+    }
+
+    private static void ensureDriverAvailable() {
+        if (!DRIVER_LOADED) {
+            throw new IllegalStateException(
+                "MariaDB JDBC Driver (org.mariadb.jdbc.Driver) is not available on classpath. " +
+                "Ensure mariadb-java-client dependency is resolved.",
+                DRIVER_LOAD_ERROR
+            );
+        }
+    }
+
     private static String getEnvOrDotEnv(String key, String defaultValue) {
         String val = System.getenv(key);
         if (val != null && !val.trim().isEmpty()) {
             return val.trim();
         }
-        val = readFromDotEnv(key);
+        val = DOT_ENV_CACHE.get(key);
         return (val != null && !val.trim().isEmpty()) ? val.trim() : defaultValue;
     }
 
@@ -121,32 +168,36 @@ public class DatabaseConnection {
         return defaultValue;
     }
 
-    private static String readFromDotEnv(String key) {
-        String[] candidatePaths = {".env", "../.env", "backend/.env"};
+    private static Map<String, String> loadDotEnvFiles() {
+        Map<String, String> envMap = new HashMap<>();
+        // Look only within project boundaries to prevent directory traversal
+        String[] candidatePaths = {".env", "backend/.env"};
         for (String p : candidatePaths) {
-            java.io.File file = new java.io.File(p);
+            File file = new File(p);
             if (file.exists() && file.isFile()) {
-                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
                     String line;
                     while ((line = br.readLine()) != null) {
                         line = line.trim();
                         if (line.startsWith("#") || line.isEmpty()) continue;
+                        if (line.startsWith("export ")) {
+                            line = line.substring(7).trim();
+                        }
                         int eq = line.indexOf('=');
                         if (eq > 0) {
                             String k = line.substring(0, eq).trim();
-                            if (k.equals(key)) {
-                                String v = line.substring(eq + 1).trim();
-                                if ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))) {
-                                    v = v.substring(1, v.length() - 1);
-                                }
-                                return v;
+                            String v = line.substring(eq + 1).trim();
+                            if (v.length() >= 2 && ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'")))) {
+                                v = v.substring(1, v.length() - 1);
                             }
+                            envMap.putIfAbsent(k, v);
                         }
                     }
                 } catch (Exception ignored) {
                 }
             }
         }
-        return null;
+        return envMap;
     }
 }
