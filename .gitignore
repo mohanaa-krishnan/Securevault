@@ -1,6 +1,18 @@
-*.class
-*.log
-.idea/
-.vscode/
+# Build targets
 target/
 out/
+*.class
+*.log
+
+# Storage and secret files
+*.dat
+*.vault
+.env
+*.env
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+.superpowers/
