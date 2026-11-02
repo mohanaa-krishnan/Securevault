@@ -34,16 +34,16 @@ public class DatabaseConnection {
      * @throws SQLException if connection fails
      */
     public static Connection getConnection() throws SQLException {
-        String host = getEnvOrDefault("DB_HOST", DEFAULT_HOST);
+        String host = getEnvOrDotEnv("DB_HOST", DEFAULT_HOST);
         int port = getPortOrDefault("DB_PORT", DEFAULT_PORT);
-        String database = getEnvOrDefault("DB_NAME", DEFAULT_DATABASE);
-        String user = getEnvOrDefault("DB_USER", DEFAULT_USER);
-        String password = System.getenv("DB_PASSWORD");
+        String database = getEnvOrDotEnv("DB_NAME", DEFAULT_DATABASE);
+        String user = getEnvOrDotEnv("DB_USER", DEFAULT_USER);
+        String password = getEnvOrDotEnv("DB_PASSWORD", null);
 
         if (password == null || password.trim().isEmpty()) {
             throw new IllegalStateException(
                 "DB_PASSWORD environment variable is not set. " +
-                "Please set DB_PASSWORD in your environment before connecting."
+                "Please set DB_PASSWORD in your environment or in a .env file before connecting."
             );
         }
 
@@ -101,19 +101,52 @@ public class DatabaseConnection {
         }
     }
 
-    private static String getEnvOrDefault(String key, String defaultValue) {
+    private static String getEnvOrDotEnv(String key, String defaultValue) {
         String val = System.getenv(key);
+        if (val != null && !val.trim().isEmpty()) {
+            return val.trim();
+        }
+        val = readFromDotEnv(key);
         return (val != null && !val.trim().isEmpty()) ? val.trim() : defaultValue;
     }
 
     private static int getPortOrDefault(String key, int defaultValue) {
-        String val = System.getenv(key);
-        if (val != null && !val.trim().isEmpty()) {
+        String val = getEnvOrDotEnv(key, null);
+        if (val != null) {
             try {
                 return Integer.parseInt(val.trim());
             } catch (NumberFormatException ignored) {
             }
         }
         return defaultValue;
+    }
+
+    private static String readFromDotEnv(String key) {
+        String[] candidatePaths = {".env", "../.env", "backend/.env"};
+        for (String p : candidatePaths) {
+            java.io.File file = new java.io.File(p);
+            if (file.exists() && file.isFile()) {
+                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        line = line.trim();
+                        if (line.startsWith("#") || line.isEmpty()) continue;
+                        int eq = line.indexOf('=');
+                        if (eq > 0) {
+                            String k = line.substring(0, eq).trim();
+                            if (k.equals(key)) {
+                                String v = line.substring(eq + 1).trim();
+                                if ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))) {
+                                    v = v.substring(1, v.length() - 1);
+                                }
+                                return v;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return null;
     }
 }
