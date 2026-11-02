@@ -16,9 +16,22 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mariadb.driver.version>3.5.6</mariadb.driver.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
+        <flatlaf.version>3.5.4</flatlaf.version>
     </properties>
 
     <dependencies>
+        <!-- Modern Flat Look and Feel -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>${flatlaf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-extras</artifactId>
+            <version>${flatlaf.version}</version>
+        </dependency>
+
         <!-- MariaDB JDBC Driver -->
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>

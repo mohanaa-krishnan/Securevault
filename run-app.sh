@@ -32,7 +32,7 @@ fi
 # Ensure bin directory exists and recompile if needed
 mkdir -p bin
 if [ -n "$JAVAC_CMD" ]; then
-    "$JAVAC_CMD" -cp "lib/mariadb-java-client-3.5.6.jar" -d bin backend/src/*.java
+    "$JAVAC_CMD" -cp "lib/*:backend/src" -d bin backend/src/*.java
 fi
 
 # Launch the SecureVault Swing Desktop UI
